@@ -1,14 +1,8 @@
-using Concrete.Api.Models;
-
-namespace Backend.Models;
+namespace Concrete.Api.Models;
 
 public class Order
 {
     public int Id { get; set; }
-    public string ProductName { get; set; } = "";
-    public int Quantity { get; set; }
-
+    public string Name { get; set; } = string.Empty;
     public int UserId { get; set; }
-    public User User { get; set; } = null!;
 }
-
