@@ -3,10 +3,6 @@ namespace Concrete.Api.Models;
 public class User
 {
     public int Id { get; set; }
-
-    public string Username { get; set; } = null!;
-
-    public string PasswordHash { get; set; } = null!;
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string Email { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
 }

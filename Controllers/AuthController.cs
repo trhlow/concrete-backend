@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Concrete.Api.Data;
+using Concrete.Api.DTOs;
+using Concrete.Api.Models;
+using Concrete.Api.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BCrypt.Net;
-using Concrete.Api.Data;
-using Concrete.Api.Models;
-using Concrete.Api.Models.Auth;
-using Concrete.Api.Services; // <-- Add this using directive if IJwtService is in this namespace
+using Microsoft.AspNetCore.Identity.Data;
 
 namespace Concrete.Api.Controllers;
 
@@ -13,54 +14,43 @@ namespace Concrete.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
-    private readonly IJwtService _jwtService; // Change type from object to IJwtService
+    private readonly IJwtService _jwtService;
 
-    public AuthController(AppDbContext context, IJwtService jwtService) // Add IJwtService to constructor
+    public AuthController(AppDbContext context, IJwtService jwtService)
     {
         _context = context;
-        _jwtService = jwtService; // Assign injected jwtService
+        _jwtService = jwtService;
     }
 
-    // REGISTER
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
-        var exists = await _context.Users
-            .AnyAsync(u => u.Username == request.Username);
-
-        if (exists)
-            return BadRequest("Username already exists");
+        if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            return BadRequest("Email already exists");
 
         var user = new User
         {
-            Username = request.Username,
+            Email = request.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
         };
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        return Ok("Register success");
+        return Ok();
     }
 
-    // LOGIN
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequest request)
     {
-        var user = await _context.Users
-            .FirstOrDefaultAsync(x => x.Username == request.Username);
-
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
         if (user == null)
-            return Unauthorized("Invalid credentials");
+            return Unauthorized();
 
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-            return Unauthorized("Invalid credentials");
+            return Unauthorized();
 
-        var token = _jwtService.GenerateToken(user.Id, user.Username);
-
-        return Ok(new
-        {
-            token
-        });
+        var token = _jwtService.GenerateToken(user.Id, user.Email);
+        return Ok(new { token });
     }
 }

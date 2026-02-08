@@ -1,7 +1,6 @@
-﻿namespace Backend.Models; // hoặc Concrete.Api.Models (PHẢI KHỚP)
+﻿namespace Concrete.Api.DTOs;
 
 public class CreateOrderRequest
 {
-    public string ProductName { get; set; } = "";
-    public int Quantity { get; set; }
+    public string Name { get; set; } = string.Empty;
 }
