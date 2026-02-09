@@ -1,19 +1,27 @@
 using Concrete.Api.Data;
-using Microsoft.EntityFrameworkCore;
+using Concrete.Api.Middlewares;
+using Concrete.Api.Security;
+using Concrete.Api.Services.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using StackExchange.Redis;
 using System.Text;
-using Concrete.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped<IJwtService, JwtService>();
-
-builder.Services.AddDbContext<AppDbContext>(options =>
+#region Database
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection")
     )
 );
+#endregion
+
+#region Authentication & Authorization
+builder.Services.Configure<JwtOptions>(
+    builder.Configuration.GetSection("Jwt"));
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -30,19 +38,45 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             )
         };
     });
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    ConnectionMultiplexer.Connect("localhost:6379")
+);
+
+builder.Services.AddScoped<ITwoFactorCache, RedisTwoFactorCache>();
 
 builder.Services.AddAuthorization();
-builder.Services.AddScoped<IJwtService, JwtService>();
+#endregion
 
+#region Application Services
+builder.Services.AddMemoryCache(); // cho 2FA cache
 
+builder.Services.AddScoped<PasswordHasher>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<ITwoFactorCache, InMemoryTwoFactorCache>();
+#endregion
+
+#region Controllers & Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "Concrete API", Version = "v1" });
+});
+#endregion
 
 var app = builder.Build();
+
+#region Middleware Pipeline
+app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseSwagger();
 app.UseSwaggerUI();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapControllers();
+#endregion
+
 app.Run();
